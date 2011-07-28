@@ -14,7 +14,6 @@
 # limitations under the License.
 require 'rubygems'
 require 'bundler'
-require 'rubygems/dependency_installer'
 
 # This is required because Bundler memoizes its initial configuration,
 # which is all fine and dandy for normal operation, but plays hell when
@@ -31,7 +30,6 @@ module Proofpoint
   module GemToJarPackager
     class GemRepositoryBuilder
       def build_repository_using_bundler(target_dir, gemfile_name, gemfile_lock_name)
-
         gemfile = Pathname.new(gemfile_name).expand_path
 
         root = gemfile.dirname
@@ -49,8 +47,21 @@ module Proofpoint
 
         Bundler::Installer::install(root, definition, {})
 
-        return "#{target_dir}/#{Gem.ruby_engine}/#{Gem::ConfigMap[:ruby_version]}"
+        gem_repository_location = "#{target_dir}/#{Gem.ruby_engine}/#{Gem::ConfigMap[:ruby_version]}"
 
+
+        bundler_gems = Gem::SpecFetcher.fetcher.fetch(Gem::Dependency.new('bundler'), true, true, false)
+
+        bundler_spec, bundler_source_uri = bundler_gems.last
+
+        bundler_gem = Gem::RemoteFetcher.new.download(bundler_spec, bundler_source_uri, gem_repository_location)
+
+        bundler_installer = Gem::Installer.new(bundler_gem, {:force=>true, :install_dir=>gem_repository_location})
+
+        bundler_installer.install
+
+
+        return gem_repository_location
       end
     end
   end

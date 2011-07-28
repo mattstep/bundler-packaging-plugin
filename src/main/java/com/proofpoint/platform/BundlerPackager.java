@@ -17,11 +17,11 @@ package com.proofpoint.platform;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.io.Closeables;
-import com.google.common.io.Files;
 import com.google.common.io.Resources;
 import org.apache.maven.plugin.AbstractMojo;
 import org.apache.maven.plugin.MojoExecutionException;
 import org.apache.maven.plugin.MojoFailureException;
+import org.apache.maven.plugin.logging.Log;
 import org.apache.maven.project.MavenProject;
 import org.jruby.Ruby;
 import org.jruby.RubyInstanceConfig;
@@ -29,20 +29,26 @@ import org.jruby.RubyObjectAdapter;
 import org.jruby.javasupport.JavaEmbedUtils;
 import org.jruby.runtime.builtin.IRubyObject;
 
+import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
+import java.io.OutputStream;
+import java.io.PrintStream;
 import java.net.URISyntaxException;
 import java.net.URL;
 import java.util.jar.JarEntry;
 import java.util.jar.JarOutputStream;
 import java.util.jar.Manifest;
 
+import static com.google.common.io.Files.copy;
+import static com.google.common.io.Files.createTempDir;
+import static com.google.common.io.Files.deleteRecursively;
 import static org.jruby.javasupport.JavaEmbedUtils.javaToRuby;
 
 /**
- * @goal rack-package
+ * @goal bundler-package
  */
 public class BundlerPackager
         extends AbstractMojo
@@ -66,7 +72,7 @@ public class BundlerPackager
             throws MojoExecutionException, MojoFailureException
     {
         URL bundlerLib = Resources.getResource("bundler/lib");
-        checkNotNull(bundlerLib, "Couldn't find a gem repo that contains bundler.  Please ensure the BundlerPackager plugin is properly built.");
+        checkNotNull(bundlerLib, "Couldn't find a gem repo that contains bundler.  Please ensure the Bundler Packaging plugin is properly built.");
 
         String gemfileLocation = locateFileInProjectRoot("Gemfile");
         String gemfileLockLocation = locateFileInProjectRoot("Gemfile.lock");
@@ -94,10 +100,29 @@ public class BundlerPackager
 
         String gemrepoGeneratedLocation = response.asJavaString();
 
+        try {
+            deleteRecursively(new File(gemrepoGeneratedLocation + "/bin"));
+        }
+        catch (IOException e) {
+            //If it fails, no big deal, we eliminate the whole repo later on.
+        }
+        try {
+            deleteRecursively(new File(gemrepoGeneratedLocation + "/cache"));
+        }
+        catch (IOException e) {
+            //If it fails, no big deal, we eliminate the whole repo later on.
+        }
+        try {
+            deleteRecursively(new File(gemrepoGeneratedLocation + "/doc"));
+        }
+        catch (IOException e) {
+            //If it fails, no big deal, we eliminate the whole repo later on.
+        }
+
         generateJarFile(new File(gemrepoGeneratedLocation), gemfileLocation);
 
         try {
-            Files.deleteRecursively(new File(gemrepoTempDirectoryPath));
+            deleteRecursively(new File(gemrepoTempDirectoryPath));
         } catch (IOException e) {
             throw new MojoExecutionException("Error trying to delete temporary directory for the gems, " +
                     "please ensure the plugin is properly built and the temporary directory [" +
@@ -115,7 +140,7 @@ public class BundlerPackager
                 gemRepositoryBuilderStream = gemRepositoryBuilder.openStream();
             }
             catch (Exception e) {
-                throw new MojoExecutionException("Couldn't find GemRepositoryBuilder.rb.  Please ensure the BundlerPackager plugin is properly built.");
+                throw new MojoExecutionException("Couldn't find GemRepositoryBuilder.rb.  Please ensure the Bundler Packaging plugin is properly built.");
             }
 
             runtime.loadFile("GemRepositoryBuilder", gemRepositoryBuilderStream, false);
@@ -129,7 +154,7 @@ public class BundlerPackager
 
     private String createTemporaryDirectory() throws MojoExecutionException {
         try {
-            return Files.createTempDir().getCanonicalPath();
+            return createTempDir().getCanonicalPath();
         } catch (IOException e) {
             throw new MojoExecutionException("Error trying to create temporary directory for the gems, " +
                     "please ensure the plugin is properly built and the temporary directory [" +
@@ -160,9 +185,14 @@ public class BundlerPackager
     }
 
     private void generateJarFile(File gemrepoDirectory, String gemfileLocation)
+            throws MojoExecutionException
     {
         try {
+            if (!outputDirectory.exists()) {
+                outputDirectory.mkdirs();
+            }
             File gemrepoJarFile = new File(String.format("%s/%s-%s-gemrepo.jar", outputDirectory.getCanonicalPath(), project.getName(), project.getVersion()));
+            getLog().info("Building gem repository jar: " + gemrepoJarFile.getName());
 
             Manifest manifest = new Manifest();
             JarOutputStream gemrepoJarOutputStream = new JarOutputStream(new FileOutputStream(gemrepoJarFile), manifest);
@@ -173,7 +203,9 @@ public class BundlerPackager
 
             Closeables.closeQuietly(gemrepoJarOutputStream);
         } catch (IOException e) {
-
+            throw new MojoExecutionException("Error trying to create the jar containing the gems repository, " +
+                    "please ensure the plugin is properly built and the target directory [" +
+                    outputDirectory.getPath() + "] exists or is creatable, is not full, and is writeable." );
         }
     }
 
@@ -192,12 +224,14 @@ public class BundlerPackager
     }
 
     private void addFileToJar(JarOutputStream jarOutputStream, File fileToAdd, String path) throws IOException {
-        JarEntry jarEntry = new JarEntry(path + fileToAdd.getName());
+        String entryName = path + fileToAdd.getName() + (fileToAdd.isDirectory() ? "/" : "");
+        getLog().debug("Adding entry [" + entryName + "] to the gem repository jar");
+        JarEntry jarEntry = new JarEntry(entryName);
         jarEntry.setTime(fileToAdd.lastModified());
         jarOutputStream.putNextEntry(jarEntry);
 
         if (!fileToAdd.isDirectory()) {
-            Files.copy(fileToAdd, jarOutputStream);
+            copy(fileToAdd, jarOutputStream);
         }
     }
 

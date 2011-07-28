@@ -85,13 +85,13 @@ public class TestBundlerPackager
         assertTrue(new File(expectedGemRepoJarLocation).exists(), "Jar not found, expected it to be located at [" + expectedGemRepoJarLocation + "]");
 
         JarFile gemRepoJar = new JarFile(expectedGemRepoJarLocation);
-        assertTrue(gemRepoJar.getEntry("specifications") != null,
+        assertTrue(gemRepoJar.getEntry("specifications/") != null,
                 "Did not find the specifications directory in the gemrepo jar at [" + expectedGemRepoJarLocation + "]");
         assertTrue(gemRepoJar.getEntry(String.format("specifications/%s-%s.gemspec",gemName, gemVersion)) != null,
                 String.format("Did not find the gemspec for [%s-%s] in the gemrepo jar at [%s]", gemName, gemVersion, expectedGemRepoJarLocation));
-        assertTrue(gemRepoJar.getEntry("gems") != null,
+        assertTrue(gemRepoJar.getEntry("gems/") != null,
                 "Did not find the gems directory in the gemrepo jar at [" + expectedGemRepoJarLocation + "]");
-        assertTrue(gemRepoJar.getEntry(String.format("gems/%s-%s",gemName, gemVersion)) != null,
+        assertTrue(gemRepoJar.getEntry(String.format("gems/%s-%s/",gemName, gemVersion)) != null,
                 String.format("Did not find the gems directory for [%s-%s] in the gemrepo jar at [%s]", gemName, gemVersion, expectedGemRepoJarLocation));
     }
 
