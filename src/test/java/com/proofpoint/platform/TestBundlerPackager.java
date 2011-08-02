@@ -81,7 +81,7 @@ public class TestBundlerPackager
         packager.setProject(mockProject);
         packager.execute();
 
-        String expectedGemRepoJarLocation = String.format("%s/%s-%s-gemrepo.jar", buildDirectory.getCanonicalPath(), mockProject.getName(), mockProject.getVersion());
+        String expectedGemRepoJarLocation = String.format("%s/%s-%s-gemrepo.jar", buildDirectory.getCanonicalPath(), mockProject.getArtifactId(), mockProject.getVersion());
         assertTrue(new File(expectedGemRepoJarLocation).exists(), "Jar not found, expected it to be located at [" + expectedGemRepoJarLocation + "]");
 
         JarFile gemRepoJar = new JarFile(expectedGemRepoJarLocation);
@@ -117,11 +117,11 @@ public class TestBundlerPackager
         gemfileLockWriter.close();
     }
 
-    private MavenProject createMockMavenProject(File sourceDirectory, String name, String version)
+    private MavenProject createMockMavenProject(File sourceDirectory, String artifactId, String version)
     {
         MavenProject project = mock(MavenProject.class);
         when(project.getBasedir()).thenReturn(sourceDirectory);
-        when(project.getName()).thenReturn(name);
+        when(project.getArtifactId()).thenReturn(artifactId);
         when(project.getVersion()).thenReturn(version);
         return project;
     }
