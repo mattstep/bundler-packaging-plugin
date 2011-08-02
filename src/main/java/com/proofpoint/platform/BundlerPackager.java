@@ -191,7 +191,7 @@ public class BundlerPackager
             if (!outputDirectory.exists()) {
                 outputDirectory.mkdirs();
             }
-            File gemrepoJarFile = new File(String.format("%s/%s-%s-gemrepo.jar", outputDirectory.getCanonicalPath(), project.getName(), project.getVersion()));
+            File gemrepoJarFile = new File(String.format("%s/%s-%s-gemrepo.jar", outputDirectory.getCanonicalPath(), project.getArtifactId(), project.getVersion()));
             getLog().info("Building gem repository jar: " + gemrepoJarFile.getName());
 
             Manifest manifest = new Manifest();

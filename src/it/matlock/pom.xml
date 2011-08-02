@@ -6,7 +6,7 @@
     <artifactId>bundler-packaging-plugin-matlock-test</artifactId>
     <packaging>jar</packaging>
     <version>0.1-SNAPSHOT</version>
-    <name>bundler-packaging-plugin-matlock-test</name>
+    <name>bundler-packaging-plugin-matlock-test-name</name>
 
     <build>
         <plugins>

@@ -6,7 +6,7 @@
     <artifactId>bundler-packaging-plugin-rails-test</artifactId>
     <packaging>jar</packaging>
     <version>0.1-SNAPSHOT</version>
-    <name>bundler-packaging-plugin-rails-test</name>
+    <name>bundler-packaging-plugin-rails-test-name</name>
 
     <build>
         <plugins>
