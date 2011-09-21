@@ -5,7 +5,41 @@
     <artifactId>bundler-packaging-plugin</artifactId>
     <packaging>maven-plugin</packaging>
     <version>1.0-SNAPSHOT</version>
-    <name>A Maven Plugin for packaging the gems defined in a Gemfile into a jar using Bundler</name>
+    <name>bundler-packaging-plugin</name>
+
+    <description>A Maven Plugin for packaging the gems defined in a Gemfile into a jar using Bundler</description>
+    <url>http://github.com/proofpoint/bundler-packaging-plugin</url>
+
+    <inceptionYear>2011</inceptionYear>
+    <organization>
+        <name>Proofpoint, Inc.</name>
+        <url>http://www.proofpoint.com</url>
+    </organization>
+    <licenses>
+        <license>
+            <name>Apache License 2.0</name>
+            <url>http://www.apache.org/licenses/LICENSE-2.0.html</url>
+            <distribution>repo</distribution>
+        </license>
+    </licenses>
+
+    <developers>
+        <developer>
+            <id>mattstep</id>
+            <name>Matt Stephenson</name>
+            <email>mattstep@mattstep.net</email>
+        </developer>
+        <developer>
+            <id>mkent</id>
+            <name>Mark Kent</name>
+            <email>mkent@proofpoint.com</email>
+        </developer>
+        <developer>
+            <id>dain</id>
+            <name>Dain Sundstrom</name>
+            <email>dain@iq80.com</email>
+        </developer>
+    </developers>
 
     <scm>
         <connection>scm:git:git://github.com/proofpoint/bundler-packaging-plugin.git</connection>
