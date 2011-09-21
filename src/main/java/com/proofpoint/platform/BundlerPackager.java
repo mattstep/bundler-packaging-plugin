@@ -21,7 +21,6 @@ import com.google.common.io.Resources;
 import org.apache.maven.plugin.AbstractMojo;
 import org.apache.maven.plugin.MojoExecutionException;
 import org.apache.maven.plugin.MojoFailureException;
-import org.apache.maven.plugin.logging.Log;
 import org.apache.maven.project.MavenProject;
 import org.jruby.Ruby;
 import org.jruby.RubyInstanceConfig;
@@ -29,13 +28,10 @@ import org.jruby.RubyObjectAdapter;
 import org.jruby.javasupport.JavaEmbedUtils;
 import org.jruby.runtime.builtin.IRubyObject;
 
-import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
-import java.io.OutputStream;
-import java.io.PrintStream;
 import java.net.URISyntaxException;
 import java.net.URL;
 import java.util.jar.JarEntry;
@@ -84,7 +80,7 @@ public class BundlerPackager
 
         String gemrepoTempDirectoryPath = createTemporaryDirectory();
 
-        IRubyObject response = null;
+        IRubyObject response;
         try {
             response = adapter.callMethod(gemRepositoryBuilder, "build_repository_using_bundler",
                     new IRubyObject[]{
@@ -165,7 +161,7 @@ public class BundlerPackager
     private String locateFileInProjectRoot(String fileName) throws MojoExecutionException {
         String fileLocation = getProjectBaseDir() + "/" + fileName;
 
-        if (!(new File(fileLocation)).exists())
+        if (!(new File(fileLocation)).canRead())
         {
             throw new MojoExecutionException("No " + fileName + " was found in the root of your project.  " +
                     "Please ensure a " + fileName + " exists, is readable, and is in the root of your project structure.  "  +
@@ -256,7 +252,7 @@ public class BundlerPackager
         RubyInstanceConfig config = new RubyInstanceConfig();
         ClassLoader classLoader = Thread.currentThread().getContextClassLoader();
         if (classLoader == null) {
-            classLoader = ClassLoader.getSystemClassLoader();
+            classLoader = getClass().getClassLoader();
         }
         config.setClassCache(JavaEmbedUtils.createClassCache(classLoader));
 
