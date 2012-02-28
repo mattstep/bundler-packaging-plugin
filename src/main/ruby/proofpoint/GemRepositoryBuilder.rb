@@ -29,7 +29,7 @@ end
 module Proofpoint
   module GemToJarPackager
     class GemRepositoryBuilder
-      def build_repository_using_bundler(target_dir, gemfile_name, gemfile_lock_name)
+      def build_repository_using_bundler(work_dir, target_dir, gemfile_name, gemfile_lock_name)
         gemfile = Pathname.new(gemfile_name).expand_path
 
         root = gemfile.dirname
@@ -37,6 +37,8 @@ module Proofpoint
         gemfile_lock = Pathname.new(gemfile_lock_name).expand_path
 
         ENV['BUNDLE_GEMFILE'] = gemfile
+
+        ENV['BUNDLE_APP_CONFIG'] = work_dir
 
         Bundler.settings[:path] = target_dir
         Bundler.settings[:disable_shared_gems] = 1

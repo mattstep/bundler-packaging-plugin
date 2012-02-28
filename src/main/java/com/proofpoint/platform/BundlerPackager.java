@@ -78,12 +78,14 @@ public class BundlerPackager
 
         IRubyObject gemRepositoryBuilder = createNewGemRepositoryBuilder(runtime);
 
+        String workTempDirectoryPath = createTemporaryDirectory();
         String gemrepoTempDirectoryPath = createTemporaryDirectory();
 
         IRubyObject response;
         try {
             response = adapter.callMethod(gemRepositoryBuilder, "build_repository_using_bundler",
                     new IRubyObject[]{
+                            javaToRuby(runtime, workTempDirectoryPath),
                             javaToRuby(runtime, gemrepoTempDirectoryPath),
                             javaToRuby(runtime, gemfileLocation),
                             javaToRuby(runtime, gemfileLockLocation)
@@ -103,6 +105,7 @@ public class BundlerPackager
 
         generateJarFile(new File(gemrepoGeneratedLocation), gemfileLocation);
 
+        deleteRecursivelyIgnoringErrors(new File(workTempDirectoryPath));
         deleteRecursivelyIgnoringErrors(new File(gemrepoTempDirectoryPath));
     }
 
