@@ -103,13 +103,7 @@ public class BundlerPackager
 
         generateJarFile(new File(gemrepoGeneratedLocation), gemfileLocation);
 
-        try {
-            deleteRecursively(new File(gemrepoTempDirectoryPath));
-        } catch (IOException e) {
-            throw new MojoExecutionException("Error trying to delete temporary directory for the gems, " +
-                    "please ensure the plugin is properly built and the temporary directory [" +
-                    gemrepoTempDirectoryPath + "] is writeable." );
-        }
+        deleteRecursivelyIgnoringErrors(new File(gemrepoTempDirectoryPath));
     }
 
     private IRubyObject createNewGemRepositoryBuilder(Ruby runtime) throws MojoExecutionException {
