@@ -180,9 +180,9 @@ public class BundlerPackager
             throws MojoExecutionException
     {
         try {
-            if (!outputDirectory.exists()) {
-                outputDirectory.mkdirs();
-            }
+            //noinspection ResultOfMethodCallIgnored
+            outputDirectory.mkdirs();
+
             File gemrepoJarFile = new File(String.format("%s/%s-%s-gemrepo.jar", outputDirectory.getCanonicalPath(), project.getArtifactId(), project.getVersion()));
             getLog().info("Building gem repository jar: " + gemrepoJarFile.getName());
 
