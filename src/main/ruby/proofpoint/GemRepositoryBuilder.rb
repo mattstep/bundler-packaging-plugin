@@ -51,19 +51,17 @@ module Proofpoint
 
         gem_repository_location = "#{target_dir}/#{Gem.ruby_engine}/#{Gem::ConfigMap[:ruby_version]}"
 
+        install_gem(gem_repository_location, 'bundler')
 
-        bundler_gems = Gem::SpecFetcher.fetcher.fetch(Gem::Dependency.new('bundler'), true, true, false)
+        gem_repository_location
+      end
 
-        bundler_spec, bundler_source_uri = bundler_gems.last
+      def install_gem(install_dir, gem_name)
+        spec, source_uri = Gem::SpecFetcher.fetcher.fetch(Gem::Dependency.new(gem_name)).last
 
-        bundler_gem = Gem::RemoteFetcher.new.download(bundler_spec, bundler_source_uri, gem_repository_location)
+        gem = Gem::RemoteFetcher.new.download(spec, source_uri, install_dir)
 
-        bundler_installer = Gem::Installer.new(bundler_gem, {:force=>true, :install_dir=>gem_repository_location})
-
-        bundler_installer.install
-
-
-        return gem_repository_location
+        Gem::Installer.new(gem, :force => true, :install_dir => install_dir).install
       end
     end
   end
