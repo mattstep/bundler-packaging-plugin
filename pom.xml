@@ -4,7 +4,7 @@
     <groupId>com.proofpoint.platform</groupId>
     <artifactId>bundler-packaging-plugin</artifactId>
     <packaging>maven-plugin</packaging>
-    <version>1.1</version>
+    <version>1.2-SNAPSHOT</version>
     <name>bundler-packaging-plugin</name>
 
     <description>A Maven Plugin for packaging the gems defined in a Gemfile into a jar using Bundler</description>
