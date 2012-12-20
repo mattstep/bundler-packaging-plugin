@@ -36,7 +36,7 @@ module Proofpoint
 
         gemfile_lock = Pathname.new(gemfile_lock_name).expand_path
 
-        ENV['BUNDLE_GEMFILE'] = gemfile
+        ENV['BUNDLE_GEMFILE'] = gemfile.to_s
 
         ENV['BUNDLE_APP_CONFIG'] = work_dir
 
