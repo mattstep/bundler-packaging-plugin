@@ -28,8 +28,11 @@ import org.jruby.RubyObjectAdapter;
 import org.jruby.javasupport.JavaEmbedUtils;
 import org.jruby.runtime.builtin.IRubyObject;
 
+import java.io.BufferedWriter;
 import java.io.File;
 import java.io.FileOutputStream;
+import java.io.FileWriter;
+import java.io.FilenameFilter;
 import java.io.IOException;
 import java.io.InputStream;
 import java.net.URISyntaxException;
@@ -190,12 +193,33 @@ public class BundlerPackager
 
             addFileToJar(gemrepoJarOutputStream, new File(gemfileLocation), "META-INF/");
 
+            addGemrepoGemspecFileToJar(gemrepoJarOutputStream, gemrepoDirectory);
+
             Closeables.closeQuietly(gemrepoJarOutputStream);
         } catch (IOException e) {
             throw new MojoExecutionException("Error trying to create the jar containing the gems repository, " +
                     "please ensure the plugin is properly built and the target directory [" +
                     outputDirectory.getPath() + "] exists or is creatable, is not full, and is writeable." );
         }
+    }
+
+    private void addGemrepoGemspecFileToJar(final JarOutputStream gemrepoJarOutputStream, final File gemrepoDirectory) throws IOException
+    {
+        File specDir = new File(String.format("%s/specifications", gemrepoDirectory));
+        File[] gemspecs = specDir.listFiles(new FilenameFilter() {
+            public boolean accept(File dir, String filename) { return filename.endsWith(".gemspec"); }
+        });
+
+        String gemrepoGemspecFilename = String.format("%s/gemrepo.gemspec", outputDirectory.getCanonicalPath());
+        FileWriter gemrepoGemspecFileStream = new FileWriter(gemrepoGemspecFilename);
+        BufferedWriter out = new BufferedWriter(gemrepoGemspecFileStream);
+        for (File gemspec : gemspecs) {
+            out.write(gemspec.getName());
+            out.write("\n");
+        }
+        out.close();
+
+        addFileToJar(gemrepoJarOutputStream, new File(gemrepoGemspecFilename), "META-INF/");
     }
 
     private void addFilesToJarRecursivelyIgnoringSymlinks(JarOutputStream jarOutputStream, File directory, String path) throws IOException
