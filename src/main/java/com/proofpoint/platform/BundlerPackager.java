@@ -21,7 +21,6 @@ import com.google.common.io.Resources;
 import org.apache.maven.plugin.AbstractMojo;
 import org.apache.maven.plugin.MojoExecutionException;
 import org.apache.maven.plugin.MojoFailureException;
-import org.apache.maven.plugin.logging.Log;
 import org.apache.maven.project.MavenProject;
 import org.jruby.Ruby;
 import org.jruby.RubyInstanceConfig;
@@ -29,13 +28,13 @@ import org.jruby.RubyObjectAdapter;
 import org.jruby.javasupport.JavaEmbedUtils;
 import org.jruby.runtime.builtin.IRubyObject;
 
-import java.io.ByteArrayOutputStream;
+import java.io.BufferedWriter;
 import java.io.File;
 import java.io.FileOutputStream;
+import java.io.FileWriter;
+import java.io.FilenameFilter;
 import java.io.IOException;
 import java.io.InputStream;
-import java.io.OutputStream;
-import java.io.PrintStream;
 import java.net.URISyntaxException;
 import java.net.URL;
 import java.util.jar.JarEntry;
@@ -82,12 +81,14 @@ public class BundlerPackager
 
         IRubyObject gemRepositoryBuilder = createNewGemRepositoryBuilder(runtime);
 
+        String workTempDirectoryPath = createTemporaryDirectory();
         String gemrepoTempDirectoryPath = createTemporaryDirectory();
 
-        IRubyObject response = null;
+        IRubyObject response;
         try {
             response = adapter.callMethod(gemRepositoryBuilder, "build_repository_using_bundler",
                     new IRubyObject[]{
+                            javaToRuby(runtime, workTempDirectoryPath),
                             javaToRuby(runtime, gemrepoTempDirectoryPath),
                             javaToRuby(runtime, gemfileLocation),
                             javaToRuby(runtime, gemfileLockLocation)
@@ -100,34 +101,15 @@ public class BundlerPackager
 
         String gemrepoGeneratedLocation = response.asJavaString();
 
-        try {
-            deleteRecursively(new File(gemrepoGeneratedLocation + "/bin"));
-        }
-        catch (IOException e) {
-            //If it fails, no big deal, we eliminate the whole repo later on.
-        }
-        try {
-            deleteRecursively(new File(gemrepoGeneratedLocation + "/cache"));
-        }
-        catch (IOException e) {
-            //If it fails, no big deal, we eliminate the whole repo later on.
-        }
-        try {
-            deleteRecursively(new File(gemrepoGeneratedLocation + "/doc"));
-        }
-        catch (IOException e) {
-            //If it fails, no big deal, we eliminate the whole repo later on.
-        }
+        // try to eliminate directories that we don't need in the jar
+        deleteRecursivelyIgnoringErrors(new File(gemrepoGeneratedLocation, "bin"));
+        deleteRecursivelyIgnoringErrors(new File(gemrepoGeneratedLocation, "cache"));
+        deleteRecursivelyIgnoringErrors(new File(gemrepoGeneratedLocation, "doc"));
 
         generateJarFile(new File(gemrepoGeneratedLocation), gemfileLocation);
 
-        try {
-            deleteRecursively(new File(gemrepoTempDirectoryPath));
-        } catch (IOException e) {
-            throw new MojoExecutionException("Error trying to delete temporary directory for the gems, " +
-                    "please ensure the plugin is properly built and the temporary directory [" +
-                    gemrepoTempDirectoryPath + "] is writeable." );
-        }
+        deleteRecursivelyIgnoringErrors(new File(workTempDirectoryPath));
+        deleteRecursivelyIgnoringErrors(new File(gemrepoTempDirectoryPath));
     }
 
     private IRubyObject createNewGemRepositoryBuilder(Ruby runtime) throws MojoExecutionException {
@@ -152,6 +134,16 @@ public class BundlerPackager
         return runtime.evalScriptlet("Proofpoint::GemToJarPackager::GemRepositoryBuilder.new");
     }
 
+    private void deleteRecursivelyIgnoringErrors(File file)
+    {
+        try {
+            deleteRecursively(file);
+        }
+        catch (IOException e) {
+            getLog().warn("Failed to delete directory recursively", e);
+        }
+    }
+
     private String createTemporaryDirectory() throws MojoExecutionException {
         try {
             return createTempDir().getCanonicalPath();
@@ -165,7 +157,7 @@ public class BundlerPackager
     private String locateFileInProjectRoot(String fileName) throws MojoExecutionException {
         String fileLocation = getProjectBaseDir() + "/" + fileName;
 
-        if (!(new File(fileLocation)).exists())
+        if (!(new File(fileLocation)).canRead())
         {
             throw new MojoExecutionException("No " + fileName + " was found in the root of your project.  " +
                     "Please ensure a " + fileName + " exists, is readable, and is in the root of your project structure.  "  +
@@ -188,9 +180,9 @@ public class BundlerPackager
             throws MojoExecutionException
     {
         try {
-            if (!outputDirectory.exists()) {
-                outputDirectory.mkdirs();
-            }
+            //noinspection ResultOfMethodCallIgnored
+            outputDirectory.mkdirs();
+
             File gemrepoJarFile = new File(String.format("%s/%s-%s-gemrepo.jar", outputDirectory.getCanonicalPath(), project.getArtifactId(), project.getVersion()));
             getLog().info("Building gem repository jar: " + gemrepoJarFile.getName());
 
@@ -201,12 +193,33 @@ public class BundlerPackager
 
             addFileToJar(gemrepoJarOutputStream, new File(gemfileLocation), "META-INF/");
 
+            addGemrepoGemspecFileToJar(gemrepoJarOutputStream, gemrepoDirectory);
+
             Closeables.closeQuietly(gemrepoJarOutputStream);
         } catch (IOException e) {
             throw new MojoExecutionException("Error trying to create the jar containing the gems repository, " +
                     "please ensure the plugin is properly built and the target directory [" +
                     outputDirectory.getPath() + "] exists or is creatable, is not full, and is writeable." );
         }
+    }
+
+    private void addGemrepoGemspecFileToJar(final JarOutputStream gemrepoJarOutputStream, final File gemrepoDirectory) throws IOException
+    {
+        File specDir = new File(String.format("%s/specifications", gemrepoDirectory));
+        File[] gemspecs = specDir.listFiles(new FilenameFilter() {
+            public boolean accept(File dir, String filename) { return filename.endsWith(".gemspec"); }
+        });
+
+        String gemrepoGemspecFilename = String.format("%s/gemrepo.gemspec", outputDirectory.getCanonicalPath());
+        FileWriter gemrepoGemspecFileStream = new FileWriter(gemrepoGemspecFilename);
+        BufferedWriter out = new BufferedWriter(gemrepoGemspecFileStream);
+        for (File gemspec : gemspecs) {
+            out.write(gemspec.getName());
+            out.write("\n");
+        }
+        out.close();
+
+        addFileToJar(gemrepoJarOutputStream, new File(gemrepoGemspecFilename), "META-INF/");
     }
 
     private void addFilesToJarRecursivelyIgnoringSymlinks(JarOutputStream jarOutputStream, File directory, String path) throws IOException
@@ -256,7 +269,7 @@ public class BundlerPackager
         RubyInstanceConfig config = new RubyInstanceConfig();
         ClassLoader classLoader = Thread.currentThread().getContextClassLoader();
         if (classLoader == null) {
-            classLoader = ClassLoader.getSystemClassLoader();
+            classLoader = getClass().getClassLoader();
         }
         config.setClassCache(JavaEmbedUtils.createClassCache(classLoader));
 
