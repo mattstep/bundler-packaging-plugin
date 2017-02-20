@@ -1,0 +1,10 @@
+GEM
+  remote: http://rubygems.org/
+  specs:
+    statistics2 (0.54)
+
+PLATFORMS
+  java
+
+DEPENDENCIES
+  statistics2

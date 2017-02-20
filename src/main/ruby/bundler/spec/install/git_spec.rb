@@ -351,7 +351,6 @@ describe "bundle install with git sources" do
     out.should include("Git error:")
     err.should include("fatal")
     err.should include("omgomg")
-    err.should include("fatal: The remote end hung up unexpectedly")
   end
 
   it "works when the gem path has spaces in it" do
@@ -404,7 +403,7 @@ describe "bundle install with git sources" do
         gem "has_submodule"
       end
     G
-    out.should =~ /Could not find gem 'submodule'/
+    out.should =~ /could not find gem 'submodule'/i
 
     should_not_be_installed "has_submodule 1.0", :expect_err => true
   end

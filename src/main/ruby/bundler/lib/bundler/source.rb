@@ -158,11 +158,17 @@ module Bundler
       end
 
       def fetch_specs
-        Index.build do |idx|
-          idx.use installed_specs
-          idx.use cached_specs if @allow_cached || @allow_remote
-          idx.use remote_specs if @allow_remote
+        # remote_specs usually generates a way larger Index than the other
+        # sources, and large_idx.use small_idx is way faster than
+        # small_idx.use large_idx.
+        if @allow_remote
+          idx = remote_specs.dup
+        else
+          idx = Index.new
         end
+        idx.use(cached_specs, :override_dupes) if @allow_cached || @allow_remote
+        idx.use(installed_specs, :override_dupes)
+        idx
       end
 
       def installed_specs
@@ -280,7 +286,7 @@ module Bundler
       attr_writer   :name
       attr_accessor :version
 
-      DEFAULT_GLOB = "{,*/}*.gemspec"
+      DEFAULT_GLOB = "{,*,*/*}.gemspec"
 
       def initialize(options)
         @options = options
@@ -362,9 +368,9 @@ module Bundler
               s.relative_loaded_from = "#{@name}.gemspec"
               s.authors  = ["no one"]
               if expanded_path.join("bin").exist?
-                binaries = expanded_path.join("bin").children
-                binaries.reject!{|p| File.directory?(p) }
-                s.executables = binaries.map{|c| c.basename.to_s }
+                executables = expanded_path.join("bin").children
+                executables.reject!{|p| File.directory?(p) }
+                s.executables = executables.map{|c| c.basename.to_s }
               end
             end
           end
@@ -585,7 +591,7 @@ module Bundler
       end
 
       def base_name
-        File.basename(uri.sub(%r{^(\w+://)?([^/:]+:)},''), ".git")
+        File.basename(uri.sub(%r{^(\w+://)?([^/:]+:)?(//\w*/)?(\w*/)*},''),".git")
       end
 
       def shortref_for_display(ref)
@@ -608,11 +614,17 @@ module Bundler
         Digest::SHA1.hexdigest(input)
       end
 
-      # Escape the URI for shell commands. To support a single quote
-      # within the URI we must end the string, escape the quote and
-      # restart.
+      # Escape the URI for git commands
       def uri_escaped
-        "'#{uri.gsub("'") {|s| "'\\''"}}'"
+        if Bundler::WINDOWS
+          # Windows quoting requires double quotes only, with double quotes
+          # inside the string escaped by being doubled.
+          '"' + uri.gsub('"') {|s| '""'} + '"'
+        else
+          # Bash requires single quoted strings, with the single quotes escaped
+          # by ending the string, escaping the quote, and restarting the string.
+          "'" + uri.gsub("'") {|s| "'\\''"} + "'"
+        end
       end
 
       def cache_path

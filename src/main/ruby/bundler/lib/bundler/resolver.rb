@@ -145,7 +145,7 @@ module Bundler
     def debug
       if ENV['DEBUG_RESOLVER']
         debug_info = yield
-        debug_info = debug_info.inpsect unless debug_info.is_a?(String)
+        debug_info = debug_info.inspect unless debug_info.is_a?(String)
         $stderr.puts debug_info
       end
     end
@@ -279,14 +279,6 @@ module Bundler
             end
             raise GemNotFound, message
           else
-            if @missing_gems[current] >= 5
-              message =  "Bundler could not find find gem #{current.required_by.last},"
-              message << "which is required by gem #{current}."
-              raise GemNotFound, message
-            end
-            @missing_gems[current] += 1
-
-            debug { "    Could not find #{current} by #{current.required_by.last}" }
             @errors[current.name] = [nil, current]
           end
         end
@@ -356,7 +348,8 @@ module Bundler
 
     def search(dep)
       if base = @base[dep.name] and base.any?
-        d = Gem::Dependency.new(base.first.name, *[dep.requirement.as_list, base.first.version].flatten)
+        reqs = [dep.requirement.as_list, base.first.version.to_s].flatten.compact
+        d = Gem::Dependency.new(base.first.name, *reqs)
       else
         d = dep.dep
       end
@@ -456,7 +449,8 @@ module Bundler
           # the rest of the time, the gem cannot be found because it does not exist in the known sources
           else
             if requirement.required_by.first
-              o << "Could not find gem '#{clean_req(requirement)}', required by '#{clean_req(requirement.required_by.first)}', in any of the sources\n"
+              o << "Could not find gem '#{clean_req(requirement)}', which is required by "
+              o << "gem '#{clean_req(requirement.required_by.first)}', in any of the sources."
             else
               o << "Could not find gem '#{clean_req(requirement)} in any of the sources\n"
             end

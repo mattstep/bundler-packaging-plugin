@@ -10,6 +10,14 @@ describe "Bundler::GemHelper tasks" do
       helper.gemspec.name.should == 'test'
     end
 
+    it "interpolates the name for a hidden gemspec" do
+      bundle 'gem test'
+      app = bundled_app("test")
+      FileUtils.mv app.join('test.gemspec'), app.join('.gemspec')
+      helper = Bundler::GemHelper.new(app.to_s)
+      helper.gemspec.name.should == 'test'
+    end
+
     it "should fail when there is no gemspec" do
       bundle 'gem test'
       app = bundled_app("test")
@@ -118,7 +126,7 @@ describe "Bundler::GemHelper tasks" do
           `git config user.name "name"`
           `git remote add origin file://#{gem_repo1}`
           `git commit -a -m "initial commit"`
-          Open3.popen3("git push origin master") # use popen3 to silence output...
+          sys_exec("git push origin master", true)
           `git commit -a -m "another commit"`
         }
         @helper.release_gem

@@ -95,6 +95,38 @@ public class TestBundlerPackager
                 String.format("Did not find the gems directory for [%s-%s] in the gemrepo jar at [%s]", gemName, gemVersion, expectedGemRepoJarLocation));
     }
 
+    @Test
+    public void testPackagingNativeDeps()
+            throws MojoExecutionException, MojoFailureException, IOException
+    {
+        String gemName = "statistics2";
+        String gemVersion = "0.54";
+
+        File sourceDirectory = Files.createTempDir();
+        File buildDirectory = Files.createTempDir();
+
+        createGemfile(gemName, gemVersion, sourceDirectory);
+
+        MavenProject mockProject = createMockMavenProject(sourceDirectory, "TestName", "test-version");
+        BundlerPackager packager = new BundlerPackager();
+        packager.setOutputDirectory(buildDirectory);
+        packager.setProject(mockProject);
+        packager.execute();
+
+        String expectedGemRepoJarLocation = String.format("%s/%s-%s-gemrepo.jar", buildDirectory.getCanonicalPath(), mockProject.getArtifactId(), mockProject.getVersion());
+        assertTrue(new File(expectedGemRepoJarLocation).exists(), "Jar not found, expected it to be located at [" + expectedGemRepoJarLocation + "]");
+
+        JarFile gemRepoJar = new JarFile(expectedGemRepoJarLocation);
+        assertTrue(gemRepoJar.getEntry("specifications/") != null,
+                "Did not find the specifications directory in the gemrepo jar at [" + expectedGemRepoJarLocation + "]");
+        assertTrue(gemRepoJar.getEntry(String.format("specifications/%s-%s.gemspec",gemName, gemVersion)) != null,
+                String.format("Did not find the gemspec for [%s-%s] in the gemrepo jar at [%s]", gemName, gemVersion, expectedGemRepoJarLocation));
+        assertTrue(gemRepoJar.getEntry("gems/") != null,
+                "Did not find the gems directory in the gemrepo jar at [" + expectedGemRepoJarLocation + "]");
+        assertTrue(gemRepoJar.getEntry(String.format("gems/%s-%s/",gemName, gemVersion)) != null,
+                String.format("Did not find the gems directory for [%s-%s] in the gemrepo jar at [%s]", gemName, gemVersion, expectedGemRepoJarLocation));
+    }
+
     private void createGemfile(String gemName, String gemVersion, File sourceDirectory)
             throws IOException
     {

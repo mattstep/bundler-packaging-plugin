@@ -16,7 +16,7 @@ module Bundler
     def initialize(base, name = nil)
       Bundler.ui = UI::Shell.new(Thor::Base.shell.new)
       @base = base
-      gemspecs = name ? [File.join(base, "#{name}.gemspec")] : Dir[File.join(base, "*.gemspec")]
+      gemspecs = name ? [File.join(base, "#{name}.gemspec")] : Dir[File.join(base, "{,*}.gemspec")]
       raise "Unable to determine name from existing gemspec. Use :name => 'gemname' in #install_tasks to manually set it." unless gemspecs.size == 1
       @spec_path = gemspecs.first
       @gemspec = Bundler.load_gemspec(@spec_path)
@@ -41,7 +41,7 @@ module Bundler
 
     def build_gem
       file_name = nil
-      sh("gem build '#{spec_path}'") { |out, code|
+      sh("gem build -V '#{spec_path}'") { |out, code|
         raise out unless out[/Successfully/]
         file_name = File.basename(built_gem_path)
         FileUtils.mkdir_p(File.join(base, 'pkg'))
@@ -70,9 +70,12 @@ module Bundler
 
     protected
     def rubygem_push(path)
-      out, _ = sh("gem push '#{path}'")
-      raise "Gem push failed due to lack of RubyGems.org credentials." if out[/Enter your RubyGems.org credentials/]
-      Bundler.ui.confirm "Pushed #{name} #{version} to rubygems.org"
+      if Pathname.new("~/.gem/credentials").expand_path.exist?
+        sh("gem push '#{path}'")
+        Bundler.ui.confirm "Pushed #{name} #{version} to rubygems.org"
+      else
+        raise "Your rubygems.org credentials aren't set. Run `gem push` to set them."
+      end
     end
 
     def built_gem_path

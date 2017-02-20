@@ -26,6 +26,9 @@ module Bundler
   end
 end
 
+# This is a terrible hack to prevent mkmf from running
+$:.unshift(File.dirname(__FILE__))
+
 module Proofpoint
   module GemToJarPackager
     class GemRepositoryBuilder
@@ -45,10 +48,13 @@ module Proofpoint
 
         definition = Bundler::Definition.build(gemfile, gemfile_lock, nil)
 
-        Bundler::Installer::install(root, definition, {})
+        begin
+          Bundler::Installer::install(root, definition, {})
+        rescue Gem::Installer::ExtensionBuildError => e
+          puts e.inspect
+        end
 
         gem_repository_location = "#{target_dir}/#{Gem.ruby_engine}/#{Gem::ConfigMap[:ruby_version]}"
-
 
         bundler_gems = Gem::SpecFetcher.fetcher.fetch(Gem::Dependency.new('bundler'), true, true, false)
 
@@ -59,7 +65,6 @@ module Proofpoint
         bundler_installer = Gem::Installer.new(bundler_gem, {:force=>true, :install_dir=>gem_repository_location})
 
         bundler_installer.install
-
 
         return gem_repository_location
       end

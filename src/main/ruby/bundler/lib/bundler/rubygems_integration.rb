@@ -123,7 +123,7 @@ module Bundler
         if executables.include? File.basename(caller.first.split(':').first)
           return
         end
-        opts = reqs.last.is_a?(Hash) ? reqs.pop : {}
+        reqs.pop if reqs.last.is_a?(Hash)
 
         unless dep.respond_to?(:name) && dep.respond_to?(:requirement)
           dep = Gem::Dependency.new(dep, reqs)
@@ -157,6 +157,16 @@ module Bundler
       end
     end
 
+    if defined? ::Deprecate
+      Deprecate = ::Deprecate
+    elsif defined? Gem::Deprecate
+      Deprecate = Gem::Deprecate
+    else
+      class Deprecate
+        def skip_during; yield; end
+      end
+    end
+
     def stub_source_index137(specs)
       # Rubygems versions lower than 1.7 use SourceIndex#from_gems_in
       source_index_class = (class << Gem::SourceIndex ; self ; end)
@@ -172,8 +182,19 @@ module Bundler
     def stub_source_index170(specs)
       Gem::SourceIndex.send(:define_method, :initialize) do |*args|
         @gems = {}
-        self.spec_dirs = *args
-        add_specs(*specs)
+        # You're looking at this thinking: Oh! This is how I make those
+        # rubygems deprecations go away!
+        #
+        # You'd be correct BUT using of this method in production code
+        # must be approved by the rubygems team itself!
+        #
+        # This is your warning. If you use this and don't have approval
+        # we can't protect you.
+        #
+        Deprecate.skip_during do
+          self.spec_dirs = *args
+          add_specs(*specs)
+        end
       end
     end
 
@@ -229,7 +250,17 @@ module Bundler
       Gem.clear_paths
     end
 
-    # Rubygems versions 1.3.6 through 1.6.2
+    # This backports the correct segment generation code from Rubygems 1.4+
+    # by monkeypatching it into the method in Rubygems 1.3.6 and 1.3.7.
+    def backport_segment_generation
+      Gem::Version.send(:define_method, :segments) do
+        @segments ||= @version.scan(/[0-9]+|[a-z]+/i).map do |s|
+          /^\d+$/ =~ s ? s.to_i : s
+        end
+      end
+    end
+
+    # Rubygems 1.4 through 1.6
     class Legacy < RubygemsIntegration
       def stub_rubygems(specs)
         stub_source_index137(specs)
@@ -244,6 +275,14 @@ module Bundler
       end
     end
 
+    # Rubygems versions 1.3.6 and 1.3.7
+    class Ancient < Legacy
+      def initialize
+        super
+        backport_segment_generation
+      end
+    end
+
     # Rubygems 1.7
     class Transitional < Legacy
       def stub_rubygems(specs)
@@ -251,7 +290,7 @@ module Bundler
       end
     end
 
-    # Rubygems 1.8
+    # Rubygems 1.8.5
     class Modern < RubygemsIntegration
       def stub_rubygems(specs)
         Gem::Specification.all = specs
@@ -270,10 +309,13 @@ module Bundler
       def find_name(name)
         Gem::Specification.find_all_by_name name
       end
+    end
 
-      # Rubygems 1.8 changes Gem.dir when you call Gem::Installer#install with
-      # an :install_path option. I guess this makes sense for them, but we have
-      # to change it back for our sudo mode to work.
+    # Rubygems 1.8.0 to 1.8.4
+    class AlmostModern < Modern
+      # Rubygems [>= 1.8.0, < 1.8.5] has a bug that changes Gem.dir whenever
+      # you call Gem::Installer#install with an :install_dir set. We have to
+      # change it back for our sudo mode to work.
       def preserve_paths
         old_dir, old_path = gem_dir, gem_path
         yield
@@ -283,17 +325,16 @@ module Bundler
 
   end
 
-  if Gem::Version.new(Gem::VERSION) >= Gem::Version.new('1.7.0')
-    if Gem::Specification.respond_to? :all=
-      # >= 1.8
-      @rubygems = RubygemsIntegration::Modern.new
-    else
-      # 1.7.x
-      @rubygems = RubygemsIntegration::Transitional.new
-    end
-  else
-    # < 1.7.0
+  if Gem::Version.new(Gem::VERSION) >= Gem::Version.new('1.8.5')
+    @rubygems = RubygemsIntegration::Modern.new
+  elsif Gem::Version.new(Gem::VERSION) >= Gem::Version.new('1.8.0')
+    @rubygems = RubygemsIntegration::AlmostModern.new
+  elsif Gem::Version.new(Gem::VERSION) >= Gem::Version.new('1.7.0')
+    @rubygems = RubygemsIntegration::Transitional.new
+  elsif Gem::Version.new(Gem::VERSION) >= Gem::Version.new('1.4.0')
     @rubygems = RubygemsIntegration::Legacy.new
+  else # Rubygems 1.3.6 and 1.3.7
+    @rubygems = RubygemsIntegration::Ancient.new
   end
 
   class << self

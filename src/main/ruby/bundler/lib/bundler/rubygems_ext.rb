@@ -157,6 +157,7 @@ module Gem
 
     alias eql? ==
   end
+
 end
 
 module Bundler

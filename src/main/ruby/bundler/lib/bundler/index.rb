@@ -78,10 +78,13 @@ module Bundler
       end
     end
 
-    def use(other)
+    def use(other, override_dupes = false)
       return unless other
       other.each do |s|
-        next if search_by_spec(s).any?
+        if (dupes = search_by_spec(s)) && dupes.any?
+          next unless override_dupes
+          @specs[s.name] -= dupes
+        end
         @specs[s.name] << s
       end
       self
@@ -101,10 +104,15 @@ module Bundler
       end
     end
 
-    def same_version?(a, b)
-      regex = /^(.*?)(?:\.0)*$/
-
-      a.to_s[regex, 1] == b.to_s[regex, 1]
+    if RUBY_VERSION < '1.9'
+      def same_version?(a, b)
+        regex = /^(.*?)(?:\.0)*$/
+        a.to_s[regex, 1] == b.to_s[regex, 1]
+      end
+    else
+      def same_version?(a, b)
+        a == b
+      end
     end
 
     def spec_satisfies_dependency?(spec, dep)
